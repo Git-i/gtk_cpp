@@ -12,6 +12,7 @@ src = [
     'main.cpp'
 ]
 exe = executable('app',
-    src, 
+    src,
             include_directories: include_directories(includes),
-            dependencies: [gtk_dep,asio_dep])
+            dependencies: [gtk_dep,asio_dep], 
+            override_options: ['cpp_std=c++20'])
