@@ -1,6 +1,7 @@
 #pragma once
 #include "asio.hpp"
 #include "asio/impl/read.hpp"
+#include "asio/placeholders.hpp"
 #include "glibmm/datetime.h"
 #include "glibmm/ustring.h"
 #include <algorithm>
@@ -8,10 +9,16 @@
 #include <codecvt>
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <span>
 #include <system_error>
 #include <vector>
+enum class MessageType : uint8_t
+{
+    Communication = 0,
+    LeaveRequest = 1
+};
 struct DateTimeNetwork
 {
     //for time we need an accuracy in minutes and theres only 1440 mins
@@ -38,10 +45,10 @@ struct DateTime
     DateTime() = default;
     DateTime(DateTimeNetwork net)
     {
-        min_of_day = net.time_of_day,
-        year = net.year,
-        month = net.month,
-        day = net.day
+        min_of_day = net.time_of_day;
+        year = net.year;
+        month = net.month;
+        day = net.day;
     }
 };
 struct Message
@@ -77,13 +84,14 @@ struct Message
         DateTimeNetwork net_time = *reinterpret_cast<DateTimeNetwork*>(net_time_bytes.data());
         msg.time = DateTime(net_time);
         msg.text = Glib::ustring(reinterpret_cast<char*>(bytes.data()) + 4, bytes.size() - 4);
+        return msg;
     }
 };
 class ChatConnection
 {
 private:
     asio::ip::tcp::socket m_socket;
-    std::vector<char> m_buffer;
+    std::vector<std::byte> m_buffer;
     ChatConnection(asio::io_context& ctx): m_socket(ctx) {}
 public:
     static std::shared_ptr<ChatConnection> Create(asio::io_context& ctx)
@@ -94,7 +102,7 @@ public:
     {
         return m_socket;
     }
-    std::vector<char>& buffer()
+    std::vector<std::byte>& buffer()
     {
         return m_buffer;
     }
@@ -104,10 +112,11 @@ class ChatServer
     asio::io_context& m_ctx;
     asio::ip::tcp::acceptor m_acceptor;
     std::vector<std::shared_ptr<ChatConnection>> connections;
+    const size_t header_length = 4/*time*/ + 4/*message lenght*/;
 public:
     ChatServer(asio::io_context& ctx, uint16_t port_no) : 
         m_ctx(ctx),
-        m_acceptor(m_ctx, asio::ip::tcp::endpoint(tcp::v4(), port_no))
+        m_acceptor(m_ctx, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port_no))
     {
         listen();
     }
@@ -116,15 +125,27 @@ public:
         auto connection = ChatConnection::Create(m_ctx);
         m_acceptor.async_accept(connection->socket(), std::bind(&ChatServer::on_accept, this, asio::placeholders::error, connection));
     }
-    void on_message(const std::error_code& error)
+    void on_message(const std::error_code& error, std::shared_ptr<ChatConnection> connection)
     {
-
+        std::cout << "msg recieved" << std::endl;
+        MessageType t = std::bit_cast<MessageType>(connection->buffer()[0]);
+        if(t == MessageType::Communication)
+        {
+            auto span = std::span<std::byte>(connection->buffer().begin()+1, connection->buffer().end());
+            Message m = Message::FromBytes(span);
+        }
+        else if (t == MessageType::LeaveRequest)
+        {
+            connections.erase(std::remove(connections.begin(), connections.end(), connection));
+        }
     }
     void on_accept(const std::error_code& error, std::shared_ptr<ChatConnection> connection)
     {
         if(!error)
         {
-            asio::async_read(connection->socket(), connection->buffer(), std::bind(&ChatServer::on_message, this, asio::placeholders::error));
+            asio::async_read(connection->socket(), asio::buffer(connection->buffer().data(), header_length), std::bind(&ChatServer::on_message, this, 
+            asio::placeholders::error,
+            connection));
             connections.push_back(connection);
         }
         listen();
