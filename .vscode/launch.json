@@ -1,11 +1,11 @@
 {
     "configurations": [
         {
-            "name": "Debug with Meson",
+            "name": "Debug Client with Meson",
             "type": "cppdbg",
             "request": "launch",
             "MIMode": "gdb",
-            "program": "${workspaceRoot}/builddir/app",
+            "program": "${workspaceRoot}/builddir/client",
             "cwd": "${workspaceRoot}/prog_dir","setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -18,7 +18,27 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "Meson: Build app:executable"
+            "preLaunchTask": "Meson: Build client:executable"
+        },
+        {
+            "name": "Debug Server with Meson",
+            "type": "cppdbg",
+            "request": "launch",
+            "MIMode": "gdb",
+            "program": "${workspaceRoot}/builddir/server",
+            "cwd": "${workspaceRoot}/prog_dir","setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Meson: Build server:executable"
         },
     ]
 }

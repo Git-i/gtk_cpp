@@ -16,6 +16,7 @@
 #include <span>
 #include <stdexcept>
 #include <system_error>
+#include <iostream>
 
 class ChatClient
 {
@@ -23,50 +24,35 @@ class ChatClient
     asio::ip::tcp::socket m_socket;
     uint32_t user_id;
 public:
-    ChatClient(asio::io_context& ctx, const char* name, uint16_t port_no) : 
+    ChatClient(asio::io_context& ctx, const char* name, const char* port_no) : 
         m_ctx(ctx),
         m_socket(ctx)
     {
         asio::ip::tcp::resolver resolver(ctx);
-        char port_str[128] {};
-        sprintf(port_str, "%u", (uint32_t)port_no);
-        auto endpoints = resolver.resolve(name, port_str);
+        auto endpoints = resolver.resolve(name, port_no);
         asio::connect(m_socket, endpoints);
         GetServerMessage();
     }
-    void ProcessServerMessage(const std::error_code& ec)
+    void ProcessServerMessage(const std::error_code& ec, std::vector<std::byte> header)
     {
-        
+        auto [t, room_idx, msg_size] = Message::DecomposeHeader(header);
+        if(t == MessageType::Communication)
+        {
+            std::vector<std::byte> msg_buf((size_t)msg_size+8);
+            asio::read(m_socket, asio::buffer(msg_buf));
+            Message m = Message::DecomposeChatBody(msg_buf);
+            std::cout << "User " << m.user << " said: " << m.text << std::endl;
+        }
+        GetServerMessage();
     }
     void GetServerMessage()
     {
+        std::vector<std::byte> header(9);
+        asio::async_read(m_socket, asio::buffer(header.data(), header.size()), std::bind(&ChatClient::ProcessServerMessage, this, asio::placeholders::error, header));
     }
     void SendMessage(const Glib::ustring& msg, uint32_t room_idx)
     {
-        if(msg.bytes() > (size_t)UINT32_MAX)
-        {
-            throw std::runtime_error("Message too long");
-        }
-        Message m;
-        m.text = msg;
-        m.user = user_id;
-        std::vector<std::byte> message;
-        message.push_back(std::bit_cast<std::byte>(MessageType::Communication));
-        auto room_span = std::as_writable_bytes(std::span<uint32_t>(&room_idx,1));
-        if(std::endian::native == std::endian::little)
-        {
-            std::reverse(room_span.begin(), room_span.end());
-        }
-        message.insert(message.end(), room_span.begin(), room_span.end());
-        uint32_t msg_len = msg.bytes();
-        auto len_span = std::as_writable_bytes(std::span<uint32_t>(&msg_len, 1));
-        if(std::endian::native == std::endian::little)
-        {
-            std::reverse(len_span.begin(), len_span.end());
-        }
-        message.insert(message.end(), len_span.begin(), len_span.end());
-        auto m_bytes = m.IntoBytes();
-        message.insert(message.end(), m_bytes.begin(), m_bytes.end());
+        auto message = Message::MakeForForwarding(MessageType::Communication, room_idx, user_id, msg);
         asio::write(m_socket, asio::buffer(message));
     }
     void Disconnect()
