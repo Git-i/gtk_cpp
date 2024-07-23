@@ -23,6 +23,7 @@ class ChatClient
     asio::io_context& m_ctx;
     asio::ip::tcp::socket m_socket;
     uint32_t user_id;
+    std::array<std::byte, Message::header_length> header;
 public:
     ChatClient(asio::io_context& ctx, const char* name, const char* port_no) : 
         m_ctx(ctx),
@@ -33,26 +34,28 @@ public:
         asio::connect(m_socket, endpoints);
         GetServerMessage();
     }
-    void ProcessServerMessage(const std::error_code& ec, std::vector<std::byte> header)
+    void ProcessServerMessage(const std::error_code& ec)
     {
         auto [t, room_idx, msg_size] = Message::DecomposeHeader(header);
+        std::cout << "recieved message of size: " << msg_size << " byte(s)" << std::endl;
         if(t == MessageType::Communication)
         {
             std::vector<std::byte> msg_buf((size_t)msg_size+8);
             asio::read(m_socket, asio::buffer(msg_buf));
-            Message m = Message::DecomposeChatBody(msg_buf);
-            std::cout << "User " << m.user << " said: " << m.text << std::endl;
+            Chat ch = Message::DecomposeChatBody(msg_buf);
+            std::cout << "User " << ch.user << " said: " << ch.text << std::endl;
         }
         GetServerMessage();
     }
     void GetServerMessage()
     {
-        std::vector<std::byte> header(9);
-        asio::async_read(m_socket, asio::buffer(header.data(), header.size()), std::bind(&ChatClient::ProcessServerMessage, this, asio::placeholders::error, header));
+        asio::async_read(m_socket, asio::buffer(header.data(), header.size()), std::bind(&ChatClient::ProcessServerMessage, this, asio::placeholders::error));
     }
     void SendMessage(const Glib::ustring& msg, uint32_t room_idx)
     {
-        auto message = Message::MakeForForwarding(MessageType::Communication, room_idx, user_id, msg);
+        Chat ch;
+        ch.text = msg;
+        const auto message = Message::MakeChatForForwarding(room_idx, user_id, ch);
         asio::write(m_socket, asio::buffer(message));
     }
     void Disconnect()
