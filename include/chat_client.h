@@ -3,11 +3,14 @@
 #include "asio/connect.hpp"
 #include "asio/impl/read.hpp"
 #include "asio/io_context.hpp"
+#include "asio/placeholders.hpp"
 #include "glibmm/ustring.h"
+#include "message.h"
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
 #include <format>
+#include <system_error>
 
 class ChatClient
 {
@@ -23,14 +26,20 @@ public:
         sprintf(port_str, "%u", (uint32_t)port_no);
         auto endpoints = resolver.resolve(name, port_str);
         asio::connect(m_socket, endpoints);
-        UpdateMessageList();
+        GetServerMessage();
     }
-    void UpdateMessageList()
+    void ProcessServerMessage(const std::error_code& ec)
     {
-        asio::read(m_socket, asio::buffer((char*)nullptr, 0));
+        
+    }
+    void GetServerMessage()
+    {
     }
     void SendMessage(const Glib::ustring& msg)
     {
+        Message m;
+        m.text = msg;
+        m.time;
     }
     void Disconnect()
     {
