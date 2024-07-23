@@ -1,5 +1,7 @@
 #pragma once
 #include "glibmm/ustring.h"
+#include <bit>
+#include <cstddef>
 #include <ctime>
 #include <span>
 #include <cstdint>
@@ -7,9 +9,11 @@
 #include <algorithm>
 enum class MessageType : uint8_t
 {
-    Communication = 0,
-    LeaveRequest = 1,
-    UserDetails = 2
+    Invalid = 0,
+    Communication = 1,
+    LeaveRequest = 2,
+    UserDetails = 3,
+    UserId = 4
 };
 struct DateTimeNetwork
 {
@@ -61,6 +65,16 @@ class Message
 {
 public:
     static constexpr size_t header_length = 1/*purpose*/+ 4/*room idx*/+ 4/*message lenght*/ ;
+    template<typename Iterator>
+    static void AppendU32(uint32_t value, Iterator pos)
+    {
+        auto value_le = std::as_writable_bytes(std::span<uint32_t>(&value, 1));
+        if(std::endian::native != std::endian::little)
+        {
+            std::reverse(value_le.begin(), value_le.end());
+        }
+        std::copy(value_le.begin(), value_le.end(), pos);
+    }
     static std::vector<std::byte> ComposeChatBody(const Chat& ch)
     {
         std::vector<std::byte> returnVal;
@@ -126,22 +140,48 @@ public:
         {
             throw std::runtime_error("Message too long");
         }
-        using return_t = decltype(ComposeChatHeader(ri, ch));
-        return_t header;
+        std::array<std::byte, header_length> header;
         header[0] = std::bit_cast<std::byte>(MessageType::Communication);
-        auto room_span = std::as_writable_bytes(std::span<uint32_t>(&ri,1));
-        if(std::endian::native != std::endian::little)
-        {
-            std::reverse(room_span.begin(), room_span.end());
-        }
-        std::copy(room_span.begin(), room_span.end(), header.begin()+1);
+        AppendU32(ri, header.begin()+1);
         uint32_t msg_len = ch.text.bytes();
-        auto len_span = std::as_writable_bytes(std::span<uint32_t>(&msg_len, 1));
-        if(std::endian::native != std::endian::little)
-        {
-            std::reverse(len_span.begin(), len_span.end());
-        }
-        std::copy(len_span.begin(), len_span.end(), header.begin()+5);
+        AppendU32(msg_len, header.begin()+5);
         return header;
+    }
+    static std::vector<std::byte> MakeUserDetailForForwarding(const Glib::ustring& name, uint32_t id)
+    {
+        std::vector<std::byte> value;
+        auto header = ComposeUserDetailHeader(id, name.bytes());
+        auto body = ComposeUserDetailBody(name);
+        value.insert(value.begin(), header.begin(), header.end());
+        value.insert(value.begin(), body.begin(), body.end());
+        return value;
+    }
+    static std::array<std::byte, header_length> ComposeUserDetailHeader(uint32_t user_id, uint32_t name_len)
+    {
+        std::array<std::byte, header_length> val;
+        val[0] = std::bit_cast<std::byte>(MessageType::UserDetails);
+        AppendU32(user_id, val.begin()+1);
+        AppendU32(name_len, val.begin()+5);
+        return val;
+    }
+    static std::vector<std::byte> ComposeUserDetailBody(const Glib::ustring& name)
+    {
+        std::vector<std::byte> value;
+        value.resize(name.bytes());
+        name.copy((char*)value.data(), value.size());
+        return value;
+    }
+    static Glib::ustring DecomposeUserDetailBody(std::span<std::byte> body)
+    {
+        return Glib::ustring((char*)body.data());
+    }
+    static std::array<std::byte, header_length> ComposeUserId(uint32_t id)
+    {
+        std::array<std::byte, Message::header_length> val;
+        uint32_t user_id_le = id;
+        if(std::endian::native != std::endian::little) std::reverse((char*)&user_id_le, (char*)&user_id_le+4);
+        val[0] = std::bit_cast<std::byte>(MessageType::UserId);
+        std::copy(reinterpret_cast<std::byte*>(&user_id_le),reinterpret_cast<std::byte*>(&user_id_le) + 4, val.begin() + 1);
+        return val;
     }
 };

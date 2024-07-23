@@ -21,6 +21,7 @@ private:
     ChatConnection(asio::io_context& ctx): m_socket(ctx) {m_buffer.resize(12);}
 public:
     uint32_t id;
+    Glib::ustring username;
     static std::shared_ptr<ChatConnection> Create(asio::io_context& ctx)
     {
         return std::shared_ptr<ChatConnection>(new ChatConnection(ctx));
@@ -69,12 +70,28 @@ public:
             case MessageType::Communication:
             {
                 std::vector<std::byte> msg_buf((size_t)msg_size+8);
-                asio::read(connection->socket(), asio::buffer(msg_buf.data(), msg_buf.size()));
+                asio::read(connection->socket(), asio::buffer(msg_buf));
                 Chat ch = Message::DecomposeChatBody(msg_buf);
                 ch.user = connection->id;
                 std::cout << "Recieved Message: " << ch.text << std::endl;
                 broadcast_message(Message::MakeChatForForwarding(room_idx, ch));
                 break;
+            }
+            case MessageType::UserDetails:
+            {
+                std::vector<std::byte> msg_buf((size_t)msg_size);
+                asio::read(connection->socket(), asio::buffer(msg_buf));
+                if(room_idx == connection->id)
+                {
+                    connection->username = Message::DecomposeUserDetailBody(msg_buf);
+                    broadcast_message(Message::MakeUserDetailForForwarding(connection->username, connection->id));
+                }
+                //user detail request for a different id means to send that ids details
+                else
+                {
+                    asio::write(connection->socket(),
+                        asio::buffer(Message::MakeUserDetailForForwarding(connection->username, connection->id)));
+                }
             }
             default: break;
         }
@@ -93,6 +110,7 @@ public:
         {
             connection->id = ++l_id;
             connections.push_back(connection);
+            asio::write(connection->socket(), asio::buffer(Message::ComposeUserId(connection->id)));
             listen_message(connection);
         }
         listen();
