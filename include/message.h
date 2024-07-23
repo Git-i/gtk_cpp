@@ -38,7 +38,7 @@ struct DateTime
         DateTime dt;
         std::time_t t = std::time(0);
         std::tm* now = std::localtime(&t);
-        now->tm_hour;
+        now->tm_hour;   
     }
     DateTime() = default;
     DateTime(DateTimeNetwork net)

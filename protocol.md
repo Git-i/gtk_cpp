@@ -13,6 +13,6 @@ Each Message consists of at least two parts, a header and a body:
 ## Body for Chat
 |Name|Size (bytes)|Possible Values|Purpose|
 |---|---|---|---|
-|Date/Time|4|Valid date, encoded with the minute of day carrying 11 bits, year carrying 5 bits, month having 4 and day having another 5|Inform Server when message came in|
+|Date/Time|4|Valid date, encoded with the minute of day carrying 11 bits, year carrying 5 bits, month having 4 and day having another 5|The sender shouldn't fill this, the server tells clients when messages came in|
 |User Id|4|1 - UINT32_MAX|What user sent the message|
 |Message|variable|UTF-8 text|Message Content|
