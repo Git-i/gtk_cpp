@@ -20,13 +20,12 @@ int main (int argc, char *argv[]) {
         name = argv[1]; port = argv[2];
     }
     ChatClient client(ctx, name, port);
+    std::thread t([&]{while(true)ctx.run();});
     std::string msg;
     while(true)
     {
-        std::cout << "Enter Message" << std::endl;
         std::cin >> msg;
         if(msg == "-1") break;
         client.SendMessage(msg, 0);
-        ctx.run();
     }
 }

@@ -55,7 +55,7 @@ public:
     {
         Chat ch;
         ch.text = msg;
-        const auto message = Message::MakeChatForForwarding(room_idx, user_id, ch);
+        const auto message = Message::MakeChatForForwarding(room_idx, ch);
         asio::write(m_socket, asio::buffer(message));
     }
     void Disconnect()

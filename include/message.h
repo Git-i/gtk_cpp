@@ -8,7 +8,8 @@
 enum class MessageType : uint8_t
 {
     Communication = 0,
-    LeaveRequest = 1
+    LeaveRequest = 1,
+    UserDetails = 2
 };
 struct DateTimeNetwork
 {
@@ -97,7 +98,7 @@ public:
         msg.text = Glib::ustring(reinterpret_cast<char*>(bytes.data()) + 8, bytes.size() - 8);
         return msg;
     }
-    static std::vector<std::byte> MakeChatForForwarding(uint32_t ri, uint32_t user,const Chat& ch)
+    static std::vector<std::byte> MakeChatForForwarding(uint32_t ri, const Chat& ch)
     {
         std::vector<std::byte> message;
         auto header = ComposeChatHeader(ri, ch);

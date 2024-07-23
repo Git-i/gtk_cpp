@@ -71,8 +71,9 @@ public:
                 std::vector<std::byte> msg_buf((size_t)msg_size+8);
                 asio::read(connection->socket(), asio::buffer(msg_buf.data(), msg_buf.size()));
                 Chat ch = Message::DecomposeChatBody(msg_buf);
+                ch.user = connection->id;
                 std::cout << "Recieved Message: " << ch.text << std::endl;
-                broadcast_message(Message::MakeChatForForwarding(room_idx, connection->id, ch));
+                broadcast_message(Message::MakeChatForForwarding(room_idx, ch));
                 break;
             }
             default: break;
