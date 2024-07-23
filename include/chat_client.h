@@ -30,6 +30,7 @@ class ChatClient
     std::array<std::byte, Message::header_length> header;
     std::unordered_map<uint32_t, Glib::ustring> usernames;
 public:
+    std::function<void(const Glib::ustring& /*sender*/, const Glib::ustring& /*message*/)> on_message;
     ChatClient(asio::io_context& ctx, const char* name, const char* port_no, const Glib::ustring& user_name) : 
         m_ctx(ctx),
         m_socket(ctx)
@@ -50,7 +51,11 @@ public:
                 std::vector<std::byte> msg_buf((size_t)msg_size+8);
                 asio::read(m_socket, asio::buffer(msg_buf));
                 Chat ch = Message::DecomposeChatBody(msg_buf);
-                std::cout << GetUserName(ch.user) << " said: " << ch.text << std::endl;
+                if(on_message)
+                {
+                    on_message(GetUserName(ch.user), ch.text);
+                }
+                
                 break;
             }
             case MessageType::UserId:

@@ -178,6 +178,7 @@ public:
     static std::array<std::byte, header_length> ComposeUserId(uint32_t id)
     {
         std::array<std::byte, Message::header_length> val;
+        val.fill(std::byte(0));
         uint32_t user_id_le = id;
         if(std::endian::native != std::endian::little) std::reverse((char*)&user_id_le, (char*)&user_id_le+4);
         val[0] = std::bit_cast<std::byte>(MessageType::UserId);

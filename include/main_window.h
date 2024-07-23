@@ -3,11 +3,10 @@
 class MainWindow : public Gtk::Window 
 {
 public:
-    MainWindow(): m_button("Hello")
+    MainWindow(): m_button("Hello, World")
     {
-        m_button.signal_clicked().connect([]() {
-
-        });
+        set_default_size(1280, 720);
+        set_title("Lchat client");
         set_child(m_button);
     }
 private:
