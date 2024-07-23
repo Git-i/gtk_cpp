@@ -30,7 +30,7 @@ class ChatClient
     std::array<std::byte, Message::header_length> header;
     std::unordered_map<uint32_t, Glib::ustring> usernames;
 public:
-    std::function<void(const Glib::ustring& /*sender*/, const Glib::ustring& /*message*/)> on_message;
+    std::function<void(const Chat& /*message*/)> on_message;
     ChatClient(asio::io_context& ctx, const char* name, const char* port_no, const Glib::ustring& user_name) : 
         m_ctx(ctx),
         m_socket(ctx)
@@ -40,6 +40,10 @@ public:
         asio::connect(m_socket, endpoints);
         this->name = user_name;
         GetServerMessage();
+    }
+    uint32_t GetId()
+    {
+        return user_id;
     }
     void ProcessServerMessage(const std::error_code& ec)
     {
@@ -53,7 +57,7 @@ public:
                 Chat ch = Message::DecomposeChatBody(msg_buf);
                 if(on_message)
                 {
-                    on_message(GetUserName(ch.user), ch.text);
+                    on_message(ch);
                 }
                 
                 break;
