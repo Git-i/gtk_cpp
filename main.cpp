@@ -5,21 +5,26 @@
 
 int main (int argc, char *argv[]) {
     asio::io_context ctx;
-    const char* name, *port;
-    std::string name_str, port_str;
-    if(argc < 3)
+    const char* name, *port, *user_name;
+    std::string name_str, port_str, usr_name;
+
+    if(argc < 4)
     {
         std::cout << "Enter Server Name/Address" << std::endl;;
         std::cin >> name_str;
         std::cout << "Enter Server Port" << std::endl;;
         std::cin >> port_str;
+        std::cout << "Enter User Name" << std::endl;;
+        std::cin >> usr_name;
+        
         name = name_str.c_str();
         port = port_str.c_str();
+        user_name = usr_name.c_str();
     }
     else {
-        name = argv[1]; port = argv[2];
+        name = argv[1]; port = argv[2]; user_name = argv[3];
     }
-    ChatClient client(ctx, name, port);
+    ChatClient client(ctx, name, port, user_name);
     std::thread t([&]{while(true)ctx.run();});
     std::string msg;
     while(true)

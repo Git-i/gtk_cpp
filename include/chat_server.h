@@ -83,14 +83,25 @@ public:
                 asio::read(connection->socket(), asio::buffer(msg_buf));
                 if(room_idx == connection->id)
                 {
+                    std::cout << "User name supply from user: " << connection->id;
                     connection->username = Message::DecomposeUserDetailBody(msg_buf);
+                    std::cout << " name: " << connection->username << std::endl;
                     broadcast_message(Message::MakeUserDetailForForwarding(connection->username, connection->id));
                 }
                 //user detail request for a different id means to send that ids details
                 else
                 {
+                    Glib::ustring name = "<Error Name>";
+                    auto tgt = std::find_if(connections.begin(), connections.end(), [room_idx](auto ptr)->bool{
+                        return ptr->id == room_idx;
+                    });
+                    std::cout << "User name of user " << room_idx << "requested by user " << connection->id << std::endl;
+                    if(tgt == connections.end())
+                        std::cerr << "Specified User doesn't exist" << std::endl;
+                    else
+                        name = (*tgt)->username;
                     asio::write(connection->socket(),
-                        asio::buffer(Message::MakeUserDetailForForwarding(connection->username, connection->id)));
+                        asio::buffer(Message::MakeUserDetailForForwarding(name, room_idx)));
                 }
             }
             default: break;
@@ -110,6 +121,7 @@ public:
         {
             connection->id = ++l_id;
             connections.push_back(connection);
+            std::cout << "Successful connection made to user: " << connection->id << std::endl;
             asio::write(connection->socket(), asio::buffer(Message::ComposeUserId(connection->id)));
             listen_message(connection);
         }

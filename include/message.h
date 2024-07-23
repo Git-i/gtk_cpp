@@ -152,8 +152,8 @@ public:
         std::vector<std::byte> value;
         auto header = ComposeUserDetailHeader(id, name.bytes());
         auto body = ComposeUserDetailBody(name);
-        value.insert(value.begin(), header.begin(), header.end());
-        value.insert(value.begin(), body.begin(), body.end());
+        value.insert(value.end(), header.begin(), header.end());
+        value.insert(value.end(), body.begin(), body.end());
         return value;
     }
     static std::array<std::byte, header_length> ComposeUserDetailHeader(uint32_t user_id, uint32_t name_len)
@@ -173,7 +173,7 @@ public:
     }
     static Glib::ustring DecomposeUserDetailBody(std::span<std::byte> body)
     {
-        return Glib::ustring((char*)body.data());
+        return Glib::ustring((char*)body.data(), body.size());
     }
     static std::array<std::byte, header_length> ComposeUserId(uint32_t id)
     {
