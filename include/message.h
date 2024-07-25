@@ -5,6 +5,7 @@
 #include <ctime>
 #include <span>
 #include <cstdint>
+#include <string>
 #include <vector>
 #include <algorithm>
 enum class MessageType : uint8_t
@@ -43,7 +44,11 @@ struct DateTime
         DateTime dt;
         std::time_t t = std::time(0);
         std::tm* now = std::localtime(&t);
-        now->tm_hour;   
+        dt.min_of_day = now->tm_hour * 60 + now->tm_min;
+        dt.day = now->tm_mday;
+        dt.month = now->tm_mon;
+        dt.year = now->tm_year - 100;
+        return dt;
     }
     DateTime() = default;
     DateTime(DateTimeNetwork net)
@@ -52,6 +57,22 @@ struct DateTime
         year = net.year;
         month = net.month;
         day = net.day;
+    }
+    Glib::ustring ToString()
+    {
+        Glib::ustring ret;
+        auto hour = min_of_day / 60;
+        auto mins = min_of_day-(hour*60);
+        ret += std::to_string(hour);
+        ret += ":";
+        ret += std::to_string(mins);
+        ret += ", ";
+        ret += std::to_string(day);
+        ret += "/";
+        ret += std::to_string(month+1);
+        ret += "/";
+        ret += std::to_string(2000 + year);
+        return ret;
     }
 };
 struct Chat
@@ -79,7 +100,7 @@ public:
     {
         std::vector<std::byte> returnVal;
         uint32_t user_le = ch.user;
-        auto net_time = ch.time.ToNetwork();
+        auto net_time = DateTime::now().ToNetwork();
         std::span<std::byte, sizeof(DateTimeNetwork)> net_time_bytes(reinterpret_cast<std::byte*>(&net_time), 4);
         if(std::endian::native != std::endian::little)
         {

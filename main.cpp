@@ -41,6 +41,7 @@ int main2 (int argc, char *argv[]) {
 }
 int main(int argc, char** argv)
 {
+    srand(time(NULL));
     asio::io_context ctx;
     const char* name, *port, *user_name;
     std::string name_str, port_str, usr_name;

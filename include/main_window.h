@@ -8,16 +8,20 @@
 #include "glib.h"
 #include "glibmm/objectbase.h"
 #include "glibmm/refptr.h"
+#include "glibmm/ustring.h"
 #include "gtk/gtk.h"
 #include "gtkmm/builder.h"
 #include "gtkmm/entry.h"
 #include "gtkmm/enums.h"
+#include "gtkmm/gridlayout.h"
 #include "gtkmm/label.h"
 #include "gtkmm/listbox.h"
 #include "gtkmm/listitem.h"
 #include "gtkmm/listitemfactory.h"
 #include "gtkmm/liststore.h"
 #include "gtkmm/listview.h"
+#include "gtkmm/mediafile.h"
+#include "gtkmm/mediastream.h"
 #include "gtkmm/object.h"
 #include "gtkmm/revealer.h"
 #include "gtkmm/scrolledwindow.h"
@@ -26,7 +30,10 @@
 #include "gtkmm/window.h"
 #include "message.h"
 #include "sigc++/functors/ptr_fun.h"
+#include <algorithm>
+#include <exception>
 #include <gtkmm.h>
+#include <limits>
 #include <memory>
 class GlibChat: public Glib::Object
 {
@@ -45,7 +52,11 @@ public:
 static void setup_cb(const Glib::RefPtr<Gtk::ListItem>& item)
 {
     auto label = Gtk::make_managed<Gtk::Label>("Empty");
-    item->set_child(*label);
+    auto name = Gtk::make_managed<Gtk::Label>("User | Date");
+    auto grid = Gtk::make_managed<Gtk::Grid>();
+    grid->attach(*name, 0, 0);
+    grid->attach(*label, 0, 1);
+    item->set_child(*grid);
 }
 class MainWindow : public Gtk::Window 
 {
@@ -53,21 +64,24 @@ public:
 
     MainWindow(asio::io_context& ctx, const char* sv_name, const char* sv_port, const char* user_name) : 
         cl(ctx, sv_name, sv_port, user_name),
-        m_sendMessage("Send"),
         list(Gio::ListStore<GlibChat>::create()),
         messages(
             Gtk::NoSelection::create(list),
             Gtk::SignalListItemFactory::create()
         ),
-        m_chatBox(Gtk::Orientation::HORIZONTAL),
-        m_layoutBox(Gtk::Orientation::VERTICAL),
         m_ctx(ctx),
         t([this]{m_ctx.run();})
     {
         set_default_size(1280, 720);
         set_title("Lchat client");
 
+        m_sendMessage.set_icon_name("document-send");
         m_sendMessage.signal_clicked().connect([this]
+        {
+            cl.SendMessage(m_chatBar.get_buffer()->get_text(), 0);
+            m_chatBar.get_buffer()->set_text("");
+        });
+        m_chatBar.signal_activate().connect([this]
         {
             cl.SendMessage(m_chatBar.get_buffer()->get_text(), 0);
             m_chatBar.get_buffer()->set_text("");
@@ -80,29 +94,94 @@ public:
             );
         };
 
-        m_chatBox.set_halign(Gtk::Align::CENTER);
-        m_chatBox.set_valign(Gtk::Align::FILL);
-
-        m_chatBox.append(m_chatBar);
-        m_chatBox.append(m_sendMessage);
-
         auto factory = std::static_pointer_cast<Gtk::SignalListItemFactory>(messages.get_factory());
-        factory->signal_setup().    connect(sigc::ptr_fun(setup_cb));
+        factory->signal_setup().connect(sigc::ptr_fun(setup_cb));
         factory->signal_bind().connect(sigc::mem_fun(*this, &MainWindow::bind_cb));
         m_messageWindow.set_child(messages);
+        m_messageWindow.set_min_content_height(get_allocated_height() - 10);
+        m_messageWindow.set_max_content_height(get_allocated_height() + 10);
+        
+        m_layoutGrid.set_valign(Gtk::Align::FILL);
+        m_layoutGrid.set_halign(Gtk::Align::FILL);
+        m_layoutGrid.set_vexpand_set(true);
+        m_layoutGrid.set_hexpand_set(true);
+        m_layoutGrid.set_vexpand(true);
+        m_layoutGrid.set_hexpand(true);
 
-        m_layoutBox.append(m_messageWindow);
-        m_layoutBox.append(m_chatBox);
+        m_messageWindow.set_valign(Gtk::Align::FILL);
+        m_messageWindow.set_halign(Gtk::Align::FILL);
+        m_messageWindow.set_vexpand_set(true);
+        m_messageWindow.set_hexpand_set(true);
+        m_messageWindow.set_vexpand(true);
+        m_messageWindow.set_hexpand(true);
 
-        set_child(m_layoutBox);
+        m_chatBar.set_halign(Gtk::Align::FILL);
+        m_chatBar.set_hexpand_set(true);
+        m_chatBar.set_hexpand(true);
+
+        m_layoutGrid.attach(m_messageWindow, 0, 0, 2);
+        m_layoutGrid.attach(m_chatBar, 0, 1);
+        m_layoutGrid.attach(m_sendMessage, 1, 1);
+        set_child(m_layoutGrid);
     }
     void bind_cb(const Glib::RefPtr<Gtk::ListItem>& item)
     {
         auto it = item->get_item();
         if(auto chat = std::dynamic_pointer_cast<GlibChat>(it))
         {
-            auto label = dynamic_cast<Gtk::Label*>(item->get_child());
-            label->set_label(cl.GetUserName(chat->chat.user) + ":" + chat->chat.text);
+            auto grid = dynamic_cast<Gtk::Grid*>(item->get_child());
+            auto align = chat->chat.user == cl.GetId() ? Gtk::Align::END : Gtk::Align::START;
+            grid->set_halign(align);
+            auto label = dynamic_cast<Gtk::Label*>(grid->get_child_at(0, 1));
+            label->set_markup(GenerateMarkup(chat->chat.text));
+            auto user = dynamic_cast<Gtk::Label*>(grid->get_child_at(0, 0));
+            user->set_markup("<small>" + cl.GetUserName(chat->chat.user) + " | " + chat->chat.time.ToString() + "</small>");
+        }
+    }
+    Glib::ustring GenerateMarkup(Glib::ustring str)
+    {
+        Escape(str);
+        auto pos = str.find("t&lt;");
+        while(pos != str.npos)
+        {
+            auto close_pos = str.find("&gt;", pos);
+            if(close_pos == str.npos) break;
+            auto internal = str.substr(pos+5, close_pos - pos - 4);
+            if(str[pos+5] == '\\')
+            {
+                str.erase(pos + 5, 1);
+            }
+            else 
+            {
+                auto id = std::numeric_limits<uint32_t>::max();
+                try {
+                    id = std::stoi(internal);
+                } catch (const std::exception& e) {}
+                auto name = cl.GetUserName(id);
+                Escape(name);
+                str.replace(pos, close_pos - pos + 4, Glib::ustring(
+                    Glib::ustring("<span foreground=\"blue\" style=\"italic\">")
+                     + '@' + name + 
+                     "</span>"
+                ));
+            }
+            pos = str.find("t&lt;", pos);
+        }
+        return str;
+    }
+    void Escape(Glib::ustring& str)
+    {
+        auto pos = str.find("<");
+        while(pos != str.npos)
+        {
+            str.replace(pos, 1, "&lt;");
+            pos = str.find("<", pos+4);
+        }
+        pos = str.find(">");
+        while(pos != str.npos)
+        {
+            str.replace(pos, 1, "&gt;");
+            pos = str.find(">", pos+4);
         }
     }
 private:
@@ -112,8 +191,7 @@ private:
     Gtk::ScrolledWindow m_messageWindow;
     Glib::RefPtr<Gio::ListModel> list;
     Gtk::ListView messages;
-    Gtk::Box m_chatBox;
-    Gtk::Box m_layoutBox;
+    Gtk::Grid m_layoutGrid;
     asio::io_context& m_ctx;
     std::thread t;
 };

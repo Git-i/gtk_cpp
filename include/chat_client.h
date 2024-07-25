@@ -7,6 +7,7 @@
 #include "asio/write.hpp"
 #include "glibmm/ustring.h"
 #include "message.h"
+#include "pangomm/color.h"
 #include <algorithm>
 #include <bit>
 #include <cstdint>
@@ -14,13 +15,29 @@
 #include <cstdlib>
 #include <exception>
 #include <format>
+#include <limits>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <system_error>
 #include <iostream>
 #include <unordered_map>
-
+struct Color
+{
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
+    static Color Random()
+    {
+        return Color{
+            (uint8_t)(rand() % 256),
+            (uint8_t)(rand() % 256),
+            (uint8_t)(rand() % 256),
+            (uint8_t)(rand() % 256)
+        };
+    }
+};
 class ChatClient
 {
     asio::io_context& m_ctx;
@@ -29,6 +46,7 @@ class ChatClient
     Glib::ustring name;
     std::array<std::byte, Message::header_length> header;
     std::unordered_map<uint32_t, Glib::ustring> usernames;
+    std::unordered_map<uint32_t, Color> colors;
 public:
     std::function<void(const Chat& /*message*/)> on_message;
     ChatClient(asio::io_context& ctx, const char* name, const char* port_no, const Glib::ustring& user_name) : 
@@ -39,11 +57,24 @@ public:
         auto endpoints = resolver.resolve(name, port_no);
         asio::connect(m_socket, endpoints);
         this->name = user_name;
+        colors[std::numeric_limits<uint32_t>::max()] = Color{200, 40, 20, 255};
         GetServerMessage();
     }
     uint32_t GetId()
     {
         return user_id;
+    }
+    Color GetUserColor(uint32_t id)
+    {
+        if(colors.contains(id))
+        {
+            return colors[id];
+        }
+        else
+        {
+            colors[id] = Color::Random();
+            return GetUserColor(id);
+        }
     }
     void ProcessServerMessage(const std::error_code& ec)
     {
