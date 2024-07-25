@@ -28,13 +28,14 @@ struct Color
     uint8_t g;
     uint8_t b;
     uint8_t a;
-    static Color Random()
+    static Color Random(bool transparent = false)
     {
+        uint8_t alpha = transparent ? (uint8_t)(rand() % 256) : 255;
         return Color{
             (uint8_t)(rand() % 256),
             (uint8_t)(rand() % 256),
             (uint8_t)(rand() % 256),
-            (uint8_t)(rand() % 256)
+            alpha
         };
     }
 };

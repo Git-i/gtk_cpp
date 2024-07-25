@@ -35,6 +35,8 @@
 #include <gtkmm.h>
 #include <limits>
 #include <memory>
+#include <sstream>
+#include <string>
 class GlibChat: public Glib::Object
 {
 public:
@@ -158,15 +160,27 @@ public:
                     id = std::stoi(internal);
                 } catch (const std::exception& e) {}
                 auto name = cl.GetUserName(id);
+                auto color = cl.GetUserColor(id);
                 Escape(name);
                 str.replace(pos, close_pos - pos + 4, Glib::ustring(
-                    Glib::ustring("<span foreground=\"blue\" style=\"italic\">")
+                    Glib::ustring("<span foreground=\"" + ColorToString(color)+
+                    "\" style=\"italic\">")
                      + '@' + name + 
                      "</span>"
                 ));
             }
             pos = str.find("t&lt;", pos);
         }
+        return str;
+    }
+    Glib::ustring ColorToString(Color colour)
+    {
+        Glib::ustring str = "#";
+        str += std::format("{:2x}{:2x}{:2x}{:2x}", 
+            colour.r,
+            colour.g,
+            colour.b,
+            colour.a);
         return str;
     }
     void Escape(Glib::ustring& str)
