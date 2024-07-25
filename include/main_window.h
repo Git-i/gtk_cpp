@@ -1,42 +1,11 @@
 #pragma once
 #include "asio/io_context.hpp"
 #include "chat_client.h"
-#include "giomm/appinfo.h"
-#include "giomm/application.h"
-#include "giomm/listmodel.h"
-#include "giomm/liststore.h"
-#include "glib.h"
-#include "glibmm/objectbase.h"
-#include "glibmm/refptr.h"
-#include "glibmm/ustring.h"
-#include "gtk/gtk.h"
-#include "gtkmm/builder.h"
-#include "gtkmm/entry.h"
-#include "gtkmm/enums.h"
-#include "gtkmm/gridlayout.h"
-#include "gtkmm/label.h"
-#include "gtkmm/listbox.h"
-#include "gtkmm/listitem.h"
-#include "gtkmm/listitemfactory.h"
-#include "gtkmm/liststore.h"
-#include "gtkmm/listview.h"
-#include "gtkmm/mediafile.h"
-#include "gtkmm/mediastream.h"
-#include "gtkmm/object.h"
-#include "gtkmm/revealer.h"
-#include "gtkmm/scrolledwindow.h"
-#include "gtkmm/signallistitemfactory.h"
-#include "gtkmm/singleselection.h"
-#include "gtkmm/window.h"
-#include "message.h"
-#include "sigc++/functors/ptr_fun.h"
-#include <algorithm>
-#include <exception>
 #include <gtkmm.h>
 #include <limits>
 #include <memory>
-#include <sstream>
 #include <string>
+#include "libnotify/notify.h"
 class GlibChat: public Glib::Object
 {
 public:
@@ -94,6 +63,10 @@ public:
             ptr->append(
                 std::make_shared<GlibChat>(msg)
             );
+            if(msg.user == cl.GetId())
+            {
+
+            }
         };
 
         auto factory = std::static_pointer_cast<Gtk::SignalListItemFactory>(messages.get_factory());
@@ -176,7 +149,7 @@ public:
     Glib::ustring ColorToString(Color colour)
     {
         Glib::ustring str = "#";
-        str += std::format("{:2x}{:2x}{:2x}{:2x}", 
+        str += std::format("{:0>2x}{:0>2x}{:0>2x}{:0>2x}", 
             colour.r,
             colour.g,
             colour.b,
