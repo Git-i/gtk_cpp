@@ -62,7 +62,8 @@ int main(int argc, char** argv)
     else {
         name = argv[1]; port = argv[2]; user_name = argv[3];
     }
-    auto app  = Gtk::Application::create("org.git_i.lchat");
+    Glib::ustring appid = "org.git_i.lchat" + std::to_string(rand());
+    auto app  = Gtk::Application::create(appid);
     auto status = app->make_window_and_run<MainWindow>(argc, argv, ctx, name, port, user_name);
     std::cout << status;
     return status;
